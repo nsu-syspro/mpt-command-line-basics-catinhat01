@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+mkdir -p "$TMP_DIR/src"
+
+cd "$TMP_DIR/src"
+
+# Try to simulate generated source files
+
+cat > foo.txt << EOF
+# Foo $(date +%s)
+Some test text here.
+EOF
+
+cat > bar.txt << EOF
+# Bar $(date +%s)
+
+  $TMP_DIR
+EOF
+
+cat > baz.txt << EOF
+# Baz $(date +%s)
+
+The other text paragraph: $TMP_DIR
+EOF
+
+EXPECTED=$(cat foo.txt bar.txt baz.txt)
+
+######################
+
+function test_solution() {
+  set +e
+  ACTUAL=$(bash "$ROOT_DIR/solution/task2.sh" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    exit $ACTUAL_EXIT
+  fi
+  diff --color=always -U 1000 <(echo "$EXPECTED") <(echo "$ACTUAL") \
+    || (echo && echo "Test structure:" && tree && exit 1)
+}
+
+
+# 1. Test same directory
+
+echo "Test case #1"
+
+cd "$TMP_DIR/src" && test_solution
+
+
+# 2. Test same files in directory structure
+
+echo "Test case #2"
+
+mkdir -p "$TMP_DIR"/test/{directory,structure}/sample
+
+cp "$TMP_DIR/src/foo.txt" "$TMP_DIR/test/directory"
+cp "$TMP_DIR/src/bar.txt" "$TMP_DIR/test"
+cp "$TMP_DIR/src/baz.txt" "$TMP_DIR/test/structure/sample"
+
+cd "$TMP_DIR/test" && test_solution
+
+
+# 3. Add more redundant files
+
+echo "Test case #3"
+
+mkdir -p "$TMP_DIR/test/foo.txt"
+
+mv "$TMP_DIR/src/foo.txt" "$TMP_DIR/test/foo.txt/foo.bar.txt"
+mv "$TMP_DIR/src/bar.txt" "$TMP_DIR/test/directory/bar"
+mv "$TMP_DIR/src/baz.txt" "$TMP_DIR/test/directory/sample/baz.txt.txt"
+
+cd "$TMP_DIR/test" && test_solution

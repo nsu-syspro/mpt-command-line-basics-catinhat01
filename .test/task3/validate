@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+read -r -d '\0' EXPECTED << EOF
+a.txt
+ab.txt
+abc.txt
+b.txt
+bar.txt
+foo.txt
+\0
+EOF
+
+######################
+
+function test_solution() {
+  set +e
+  ACTUAL=$(bash "$ROOT_DIR/solution/task3.sh" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    exit $ACTUAL_EXIT
+  fi
+  diff --color=always -U 1000 <(echo "$EXPECTED") <(echo "$ACTUAL") \
+    || (echo && echo "Test structure:" && tree && exit 1)
+}
+
+
+# 1. Test same directory
+
+echo "Test case #1"
+
+mkdir -p "$TMP_DIR/test1"
+cd "$TMP_DIR/test1"
+touch "$EXPECTED"
+cd "$TMP_DIR/test1" && test_solution
+
+
+# 2. Test files in directory structure with redundant files and directories
+
+echo "Test case #2"
+
+mkdir -p "$TMP_DIR"/test2/{directory,structure,foo.txt}/sample
+
+touch "$TMP_DIR/test2/directory/sample/b.txt"
+touch "$TMP_DIR/test2/directory/ab.txt"
+touch "$TMP_DIR/test2/directory/b.txt.bar"
+touch "$TMP_DIR/test2/foo.txt/abc.txt"
+touch "$TMP_DIR/test2/structure/sample/bar.txt"
+touch "$TMP_DIR/test2/structure/foo.txt"
+touch "$TMP_DIR/test2/a.txt"
+
+cd "$TMP_DIR/test2" && test_solution
